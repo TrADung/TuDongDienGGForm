@@ -338,7 +338,7 @@ app.get('/api/templates', (req, res) => {
             typeName: "Đoạn văn dài",
             required: false,
             textConfig: {
-              mode: "random_preset"
+              mode: "dynamic_paragraph"
             }
           }
         ]

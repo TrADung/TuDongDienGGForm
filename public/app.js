@@ -453,25 +453,52 @@ function renderCheckboxConfig(q) {
  * Render Text & Paragraph Configurator
  */
 function renderTextConfig(q) {
-  const cfg = q.textConfig || { mode: 'random_preset', customPool: [] };
+  const isParagraph = q.type === 'paragraph';
+  const defaultMode = isParagraph ? 'dynamic_paragraph' : 'dynamic_sentence';
+  const cfg = q.textConfig || { mode: defaultMode, customPool: [], rangeMin: 18, rangeMax: 60 };
+
+  const currentMode = cfg.mode || defaultMode;
 
   return `
     <div class="space-y-3">
-      <div class="flex items-center gap-2">
-        <label class="text-xs text-slate-400">Chế độ sinh nội dung tự động:</label>
-        <select class="text-mode-select bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          <option value="random_vietnamese_name" ${cfg.mode === 'random_vietnamese_name' ? 'selected' : ''}>Họ và tên Việt Nam ngẫu nhiên</option>
-          <option value="random_email" ${cfg.mode === 'random_email' ? 'selected' : ''}>Email ngẫu nhiên (gmail, outlook)</option>
-          <option value="random_phone" ${cfg.mode === 'random_phone' ? 'selected' : ''}>Số điện thoại Việt Nam ngẫu nhiên</option>
-          <option value="random_preset" ${cfg.mode === 'random_preset' ? 'selected' : ''}>Ý kiến / Đánh giá mẫu tự nhiên</option>
-          <option value="random_number" ${cfg.mode === 'random_number' ? 'selected' : ''}>Độ tuổi / Số ngẫu nhiên trong khoảng</option>
-          <option value="custom_pool" ${cfg.mode === 'custom_pool' ? 'selected' : ''}>Tùy chỉnh danh sách câu trả lời riêng</option>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <label class="text-xs text-slate-400 flex-shrink-0">Chế độ sinh nội dung:</label>
+        <select class="text-mode-select w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium">
+          <optgroup label="Tự động ghép câu tự nhiên (Không trùng lặp)">
+            <option value="dynamic_paragraph" ${currentMode === 'dynamic_paragraph' ? 'selected' : ''}>✨ Đoạn văn dài chi tiết (3-4 câu ghép tự nhiên, mỗi lần 1 nội dung khác)</option>
+            <option value="dynamic_sentence" ${currentMode === 'dynamic_sentence' || currentMode === 'random_preset' ? 'selected' : ''}>💬 Câu nhận xét ngắn (1 câu súc tích, hơn 50.000 biến thể khác nhau)</option>
+          </optgroup>
+          <optgroup label="Thông tin cá nhân tiếng Việt">
+            <option value="random_vietnamese_name" ${currentMode === 'random_vietnamese_name' ? 'selected' : ''}>👤 Họ và tên Việt Nam ngẫu nhiên (hơn 100.000 tên)</option>
+            <option value="random_email" ${currentMode === 'random_email' ? 'selected' : ''}>📧 Email ngẫu nhiên (gmail, outlook, icloud)</option>
+            <option value="random_phone" ${currentMode === 'random_phone' ? 'selected' : ''}>📱 Số điện thoại Việt Nam ngẫu nhiên (09x, 08x, 03x)</option>
+            <option value="random_city" ${currentMode === 'random_city' ? 'selected' : ''}>🏙️ Tỉnh / Thành phố Việt Nam (Hà Nội, TP.HCM,...)</option>
+            <option value="random_job" ${currentMode === 'random_job' ? 'selected' : ''}>💼 Nghề nghiệp / Vị trí công việc</option>
+            <option value="random_university" ${currentMode === 'random_university' ? 'selected' : ''}>🎓 Trường Đại học / Cao đẳng</option>
+          </optgroup>
+          <optgroup label="Con số & Tùy biến riêng">
+            <option value="random_number" ${currentMode === 'random_number' ? 'selected' : ''}>🔢 Độ tuổi / Con số ngẫu nhiên trong khoảng</option>
+            <option value="custom_pool" ${currentMode === 'custom_pool' ? 'selected' : ''}>📝 Tùy chỉnh danh sách riêng (nhập danh sách từng dòng)</option>
+          </optgroup>
         </select>
       </div>
 
+      <!-- Number range inputs (Visible only if random_number is chosen) -->
+      <div class="number-range-container ${currentMode === 'random_number' ? '' : 'hidden'} flex items-center gap-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 text-xs">
+        <span class="text-slate-400">Khoảng giá trị:</span>
+        <label class="flex items-center gap-1 font-mono">
+          <span class="text-slate-400">Từ</span>
+          <input type="number" value="${cfg.rangeMin ?? 18}" class="num-range-min w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-emerald-400 font-bold text-xs">
+        </label>
+        <label class="flex items-center gap-1 font-mono">
+          <span class="text-slate-400">đến</span>
+          <input type="number" value="${cfg.rangeMax ?? 60}" class="num-range-max w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-emerald-400 font-bold text-xs">
+        </label>
+      </div>
+
       <!-- Custom Pool Textarea (Hidden unless custom_pool is chosen) -->
-      <div class="custom-pool-container ${cfg.mode === 'custom_pool' ? '' : 'hidden'} space-y-1.5">
-        <span class="text-[11px] text-slate-400">Nhập danh sách câu trả lời (Mỗi dòng 1 câu, hệ thống sẽ bốc ngẫu nhiên mỗi lượt):</span>
+      <div class="custom-pool-container ${currentMode === 'custom_pool' ? '' : 'hidden'} space-y-1.5">
+        <span class="text-[11px] text-slate-400">Nhập danh sách câu trả lời của bạn (Mỗi dòng 1 câu, mỗi lượt điền hệ thống sẽ bốc ngẫu nhiên không trùng):</span>
         <textarea rows="3" class="custom-pool-textarea w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500" placeholder="Câu trả lời 1&#10;Câu trả lời 2&#10;Câu trả lời 3">${(cfg.customPool || []).join('\n')}</textarea>
       </div>
     </div>
@@ -609,11 +636,15 @@ function attachQuestionCardEvents(q, card) {
   const textSelect = card.querySelector('.text-mode-select');
   const customContainer = card.querySelector('.custom-pool-container');
   const customTextarea = card.querySelector('.custom-pool-textarea');
+  const numRangeContainer = card.querySelector('.number-range-container');
+  const numMinInput = card.querySelector('.num-range-min');
+  const numMaxInput = card.querySelector('.num-range-max');
 
   if (textSelect) {
     textSelect.addEventListener('change', (e) => {
       if (!q.textConfig) q.textConfig = {};
       q.textConfig.mode = e.target.value;
+      
       if (customContainer) {
         if (e.target.value === 'custom_pool') {
           customContainer.classList.remove('hidden');
@@ -621,6 +652,28 @@ function attachQuestionCardEvents(q, card) {
           customContainer.classList.add('hidden');
         }
       }
+
+      if (numRangeContainer) {
+        if (e.target.value === 'random_number') {
+          numRangeContainer.classList.remove('hidden');
+        } else {
+          numRangeContainer.classList.add('hidden');
+        }
+      }
+    });
+  }
+
+  if (numMinInput) {
+    numMinInput.addEventListener('input', (e) => {
+      if (!q.textConfig) q.textConfig = {};
+      q.textConfig.rangeMin = Number(e.target.value);
+    });
+  }
+
+  if (numMaxInput) {
+    numMaxInput.addEventListener('input', (e) => {
+      if (!q.textConfig) q.textConfig = {};
+      q.textConfig.rangeMax = Number(e.target.value);
     });
   }
 

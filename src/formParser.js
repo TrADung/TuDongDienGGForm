@@ -316,6 +316,25 @@ function parseQuestionItem(rawItem) {
     initialWeights[0].weight += diff;
   }
 
+  // Detect intelligent text generation mode from question title
+  let detectedTextMode = typeKey === 'paragraph' ? 'dynamic_paragraph' : 'dynamic_sentence';
+  const lowerTitle = (itemTitle || '').toLowerCase();
+  if (lowerTitle.includes('họ và tên') || lowerTitle.includes('họ tên') || lowerTitle.includes('tên của bạn') || lowerTitle.includes('tên bạn') || lowerTitle.includes('full name') || lowerTitle.includes('fullname')) {
+    detectedTextMode = 'random_vietnamese_name';
+  } else if (lowerTitle.includes('email') || lowerTitle.includes('mail')) {
+    detectedTextMode = 'random_email';
+  } else if (lowerTitle.includes('số điện thoại') || lowerTitle.includes('sđt') || lowerTitle.includes('phone') || lowerTitle.includes('liên hệ') || lowerTitle.includes('zalo')) {
+    detectedTextMode = 'random_phone';
+  } else if (lowerTitle.includes('tỉnh') || lowerTitle.includes('thành phố') || lowerTitle.includes('quê quán') || lowerTitle.includes('địa chỉ') || lowerTitle.includes('nơi ở')) {
+    detectedTextMode = 'random_city';
+  } else if (lowerTitle.includes('nghề nghiệp') || lowerTitle.includes('công việc') || lowerTitle.includes('chức vụ') || lowerTitle.includes('vị trí')) {
+    detectedTextMode = 'random_job';
+  } else if (lowerTitle.includes('trường') || lowerTitle.includes('đại học') || lowerTitle.includes('cao đẳng') || lowerTitle.includes('học viện')) {
+    detectedTextMode = 'random_university';
+  } else if (lowerTitle.includes('tuổi') || lowerTitle.includes('năm sinh') || lowerTitle.includes('age')) {
+    detectedTextMode = 'random_number';
+  }
+
   return {
     id: itemId,
     entryId: String(entryId),
@@ -328,7 +347,7 @@ function parseQuestionItem(rawItem) {
     weights: initialWeights,
     // For text types: customizable templates/presets
     textConfig: {
-      mode: 'random_preset', // 'random_preset' | 'custom_pool' | 'random_vietnamese_name' | 'random_email' | 'random_phone' | 'random_number'
+      mode: detectedTextMode,
       customPool: [
         "Rất tốt và hài lòng với chất lượng dịch vụ",
         "Trải nghiệm tuyệt vời, nhân viên hỗ trợ nhiệt tình",
