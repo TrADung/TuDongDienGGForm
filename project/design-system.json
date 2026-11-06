@@ -1,0 +1,23 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-06T00:40:00Z"
+  },
+  "title": "FormFlow Auto Design System",
+  "namespace": "FormFlow",
+  "libraries": [
+    { "name": "tailwindcss", "version": "3.4" },
+    { "name": "lucide-icons", "version": "0.344" },
+    { "name": "chart.js", "version": "4.4" }
+  ],
+  "sections": {},
+  "groups": ["Icons", "Tokens", "Components"],
+  "assetGroups": {},
+  "blobs": {},
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  }
+}
