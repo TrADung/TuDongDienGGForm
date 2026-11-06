@@ -37,6 +37,30 @@ const guideModal = document.getElementById('guide-modal');
 const btnAutoBalanceAll = document.getElementById('btn-auto-balance-all');
 const btnSavePreset = document.getElementById('btn-save-preset');
 
+// Preset Manager Elements
+const btnOpenPresets = document.getElementById('btn-open-presets');
+const badgePresetsCount = document.getElementById('badge-presets-count');
+const savePresetModal = document.getElementById('save-preset-modal');
+const btnCloseSavePreset = document.getElementById('btn-close-save-preset');
+const btnCancelSavePreset = document.getElementById('btn-cancel-save-preset');
+const btnConfirmSavePreset = document.getElementById('btn-confirm-save-preset');
+const inputSavePresetName = document.getElementById('input-save-preset-name');
+const saveModalFormTitle = document.getElementById('save-modal-form-title');
+const saveModalQCount = document.getElementById('save-modal-q-count');
+const saveModalRunsCount = document.getElementById('save-modal-runs-count');
+
+const presetsManagerModal = document.getElementById('presets-manager-modal');
+const btnClosePresetsManager = document.getElementById('btn-close-presets-manager');
+const modalPresetsTotalBadge = document.getElementById('modal-presets-total-badge');
+const inputSearchPresets = document.getElementById('input-search-presets');
+const btnImportPresetsTrigger = document.getElementById('btn-import-presets-trigger');
+const btnExportAllPresets = document.getElementById('btn-export-all-presets');
+const inputImportPresetFile = document.getElementById('input-import-preset-file');
+const presetsListContainer = document.getElementById('presets-list-container');
+const btnClearAllPresets = document.getElementById('btn-clear-all-presets');
+
+const FORMFLOW_PRESETS_KEY = 'formflow_presets_v2';
+
 // Execution & Monitor Elements
 const inputTotalCount = document.getElementById('input-total-count');
 const inputMinDelay = document.getElementById('input-min-delay');
@@ -64,7 +88,7 @@ const btnExportLogs = document.getElementById('btn-export-logs');
 document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   initEventListeners();
-  checkLocalStoragePreset();
+  updatePresetsBadge();
 });
 
 function initEventListeners() {
@@ -81,7 +105,31 @@ function initEventListeners() {
   });
 
   btnAutoBalanceAll.addEventListener('click', handleAutoBalanceAll);
-  btnSavePreset.addEventListener('click', handleSavePreset);
+  
+  // Preset Manager Listeners
+  btnSavePreset.addEventListener('click', openSavePresetModal);
+  btnOpenPresets.addEventListener('click', openPresetsManagerModal);
+  btnCloseSavePreset.addEventListener('click', closeSavePresetModal);
+  btnCancelSavePreset.addEventListener('click', closeSavePresetModal);
+  btnConfirmSavePreset.addEventListener('click', handleConfirmSavePreset);
+  inputSavePresetName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleConfirmSavePreset();
+  });
+
+  btnClosePresetsManager.addEventListener('click', closePresetsManagerModal);
+  inputSearchPresets.addEventListener('input', (e) => renderPresetsList(e.target.value));
+  btnImportPresetsTrigger.addEventListener('click', () => inputImportPresetFile.click());
+  inputImportPresetFile.addEventListener('change', handleImportPresetsFile);
+  btnExportAllPresets.addEventListener('click', handleExportAllPresets);
+  btnClearAllPresets.addEventListener('click', handleClearAllPresets);
+
+  // Close modals on outside click
+  savePresetModal.addEventListener('click', (e) => {
+    if (e.target === savePresetModal) closeSavePresetModal();
+  });
+  presetsManagerModal.addEventListener('click', (e) => {
+    if (e.target === presetsManagerModal) closePresetsManagerModal();
+  });
 
   btnTestSingle.addEventListener('click', handleTestSingle);
   btnStartBatch.addEventListener('click', handleStartBatch);
@@ -981,29 +1029,296 @@ function updateChartData(distStats) {
 }
 
 /**
- * Save & Check LocalStorage Presets
+ * Preset Management Logic (Multiple Presets in LocalStorage + Export/Import)
  */
-function handleSavePreset() {
-  if (!currentFormData) return;
+
+function getSavedPresets() {
   try {
-    localStorage.setItem('formflow_preset', JSON.stringify(currentFormData));
-    alert('✅ Cấu hình xác suất và câu hỏi đã được lưu vào bộ nhớ trình duyệt!');
+    const raw = localStorage.getItem(FORMFLOW_PRESETS_KEY);
+    return raw ? JSON.parse(raw) : [];
   } catch (e) {
-    alert('Không thể lưu cấu hình: ' + e.message);
+    console.error("Error reading presets:", e);
+    return [];
   }
 }
 
-function checkLocalStoragePreset() {
+function setSavedPresets(presets) {
   try {
-    const saved = localStorage.getItem('formflow_preset');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.actionUrl) {
-        // Offer quick restore
-        console.log("Found saved preset:", parsed.title);
-      }
+    localStorage.setItem(FORMFLOW_PRESETS_KEY, JSON.stringify(presets));
+    updatePresetsBadge();
+  } catch (e) {
+    alert("Không thể lưu cấu hình vào bộ nhớ trình duyệt: " + e.message);
+  }
+}
+
+function updatePresetsBadge() {
+  const presets = getSavedPresets();
+  const count = presets.length;
+  if (badgePresetsCount) badgePresetsCount.textContent = count;
+  if (modalPresetsTotalBadge) modalPresetsTotalBadge.textContent = `${count} cấu hình`;
+}
+
+function openSavePresetModal() {
+  if (!currentFormData || !currentFormData.actionUrl) {
+    showError("Vui lòng phân tích biểu mẫu trước khi lưu cấu hình.");
+    return;
+  }
+
+  const totalQ = (currentFormData.sections || []).reduce((sum, s) => sum + (s.questions?.length || 0), 0);
+  saveModalFormTitle.textContent = currentFormData.title || "Biểu mẫu không tên";
+  saveModalQCount.textContent = `${totalQ} câu hỏi`;
+  saveModalRunsCount.textContent = `${inputTotalCount.value || 20} lượt`;
+
+  // Default suggested preset name
+  inputSavePresetName.value = `${currentFormData.title || 'Cấu hình'} (${new Date().toLocaleDateString('vi-VN')})`;
+  savePresetModal.classList.remove('hidden');
+  savePresetModal.classList.add('flex');
+  inputSavePresetName.focus();
+  inputSavePresetName.select();
+  lucide.createIcons();
+}
+
+function closeSavePresetModal() {
+  savePresetModal.classList.add('hidden');
+  savePresetModal.classList.remove('flex');
+}
+
+function handleConfirmSavePreset() {
+  const name = inputSavePresetName.value.trim();
+  if (!name) {
+    alert("Vui lòng nhập tên cho cấu hình.");
+    return;
+  }
+
+  if (!currentFormData) return;
+
+  const totalQ = (currentFormData.sections || []).reduce((sum, s) => sum + (s.questions?.length || 0), 0);
+  const presets = getSavedPresets();
+
+  const newPreset = {
+    id: 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    name: name,
+    formTitle: currentFormData.title || "Biểu mẫu",
+    formUrl: inputFormUrl.value.trim() || currentFormData.actionUrl,
+    totalQuestions: totalQ,
+    savedAt: new Date().toLocaleString('vi-VN'),
+    formData: JSON.parse(JSON.stringify(currentFormData)),
+    settings: {
+      totalCount: Number(inputTotalCount.value) || 20,
+      minDelay: Number(inputMinDelay.value) || 600,
+      maxDelay: Number(inputMaxDelay.value) || 1200
     }
-  } catch (e) {}
+  };
+
+  // Check if a preset with identical name already exists -> update it or prepend new
+  const existingIdx = presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+  if (existingIdx !== -1) {
+    if (confirm(`Cấu hình "${name}" đã tồn tại. Bạn có muốn ghi đè cấu hình này không?`)) {
+      presets[existingIdx] = newPreset;
+    } else {
+      return;
+    }
+  } else {
+    presets.unshift(newPreset);
+  }
+
+  setSavedPresets(presets);
+  closeSavePresetModal();
+  alert(`✅ Đã lưu cấu hình "${name}" thành công vào bộ nhớ trình duyệt!`);
+}
+
+function openPresetsManagerModal() {
+  renderPresetsList(inputSearchPresets.value.trim());
+  presetsManagerModal.classList.remove('hidden');
+  presetsManagerModal.classList.add('flex');
+  lucide.createIcons();
+}
+
+function closePresetsManagerModal() {
+  presetsManagerModal.classList.add('hidden');
+  presetsManagerModal.classList.remove('flex');
+}
+
+function renderPresetsList(searchTerm = '') {
+  const presets = getSavedPresets();
+  presetsListContainer.innerHTML = '';
+
+  const filtered = searchTerm
+    ? presets.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.formTitle.toLowerCase().includes(searchTerm.toLowerCase()))
+    : presets;
+
+  if (filtered.length === 0) {
+    presetsListContainer.innerHTML = `
+      <div class="p-8 text-center bg-slate-950/40 rounded-xl border border-slate-800/80 space-y-2">
+        <i data-lucide="bookmark-x" class="w-8 h-8 text-slate-600 mx-auto"></i>
+        <p class="text-xs text-slate-400">${searchTerm ? 'Không tìm thấy cấu hình phù hợp.' : 'Chưa có cấu hình nào được lưu.'}</p>
+        <p class="text-[11px] text-slate-500">Mở một biểu mẫu, chỉnh xác suất và bấm "Lưu cấu hình" để bắt đầu lưu trữ.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  filtered.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'glass-card rounded-xl p-3.5 border border-slate-800/80 hover:border-slate-700 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+    
+    card.innerHTML = `
+      <div class="space-y-1 flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-xs sm:text-sm text-slate-100 truncate max-w-[260px]" title="${escapeHtml(p.name)}">
+            ${escapeHtml(p.name)}
+          </span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800/80 text-slate-400 font-mono">
+            ${p.savedAt}
+          </span>
+        </div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-2 flex-wrap">
+          <span class="truncate max-w-[200px] text-cyan-400 flex items-center gap-1" title="${escapeHtml(p.formTitle)}">
+            <i data-lucide="file-text" class="w-3 h-3"></i>
+            ${escapeHtml(p.formTitle)}
+          </span>
+          <span class="font-mono text-emerald-400 font-medium">• ${p.totalQuestions} câu hỏi</span>
+          <span class="font-mono text-slate-400">• ${p.settings?.totalCount || 20} lượt</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button data-action="apply" data-id="${p.id}" class="cursor-pointer px-3 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg flex items-center gap-1 transition shadow-sm">
+          <i data-lucide="play" class="w-3 h-3 text-slate-950"></i>
+          <span>Áp dụng</span>
+        </button>
+        <button data-action="export-single" data-id="${p.id}" class="cursor-pointer p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition" title="Tải file JSON cấu hình này">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        </button>
+        <button data-action="delete" data-id="${p.id}" class="cursor-pointer p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg border border-rose-900/40 transition" title="Xóa cấu hình">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    `;
+
+    // Attach event listeners
+    const btnApply = card.querySelector('[data-action="apply"]');
+    btnApply.addEventListener('click', () => handleApplyPreset(p));
+
+    const btnExport = card.querySelector('[data-action="export-single"]');
+    btnExport.addEventListener('click', () => handleExportSinglePreset(p));
+
+    const btnDelete = card.querySelector('[data-action="delete"]');
+    btnDelete.addEventListener('click', () => handleDeletePreset(p.id, p.name));
+
+    presetsListContainer.appendChild(card);
+  });
+
+  lucide.createIcons();
+}
+
+function handleApplyPreset(preset) {
+  if (!preset || !preset.formData) return;
+
+  if (preset.formUrl) {
+    inputFormUrl.value = preset.formUrl;
+  }
+  if (preset.settings) {
+    if (preset.settings.totalCount) inputTotalCount.value = preset.settings.totalCount;
+    if (preset.settings.minDelay) inputMinDelay.value = preset.settings.minDelay;
+    if (preset.settings.maxDelay) inputMaxDelay.value = preset.settings.maxDelay;
+  }
+
+  loadFormDataIntoUI(JSON.parse(JSON.stringify(preset.formData)));
+  closePresetsManagerModal();
+
+  alert(`⚡ Đã nạp thành công cấu hình "${preset.name}"!\nBạn có thể kiểm tra các tỷ lệ xác suất và bắt đầu chạy.`);
+}
+
+function handleDeletePreset(presetId, presetName) {
+  if (!confirm(`Bạn có chắc chắn muốn xóa cấu hình "${presetName}"?`)) return;
+
+  let presets = getSavedPresets();
+  presets = presets.filter(p => p.id !== presetId);
+  setSavedPresets(presets);
+  renderPresetsList(inputSearchPresets.value.trim());
+}
+
+function handleExportSinglePreset(preset) {
+  const jsonContent = JSON.stringify(preset, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = preset.name.replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, '_');
+  a.href = url;
+  a.download = `formflow_preset_${safeName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleExportAllPresets() {
+  const presets = getSavedPresets();
+  if (presets.length === 0) {
+    alert("Chưa có cấu hình nào để xuất file.");
+    return;
+  }
+
+  const jsonContent = JSON.stringify(presets, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `formflow_all_presets_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleImportPresetsFile(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const imported = JSON.parse(event.target.result);
+      let listToImport = [];
+
+      if (Array.isArray(imported)) {
+        listToImport = imported;
+      } else if (imported && (imported.formData || imported.name)) {
+        listToImport = [imported];
+      } else {
+        throw new Error("File JSON không đúng cấu trúc của FormFlow Auto.");
+      }
+
+      let currentPresets = getSavedPresets();
+      let addedCount = 0;
+
+      listToImport.forEach(item => {
+        if (!item.name || !item.formData) return;
+        // Re-generate ID to avoid conflict
+        item.id = 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        currentPresets.unshift(item);
+        addedCount++;
+      });
+
+      setSavedPresets(currentPresets);
+      renderPresetsList(inputSearchPresets.value.trim());
+      alert(`🎉 Đã nhập thành công ${addedCount} cấu hình từ file!`);
+    } catch (err) {
+      alert("Lỗi khi đọc file cấu hình: " + err.message);
+    } finally {
+      inputImportPresetFile.value = '';
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function handleClearAllPresets() {
+  const presets = getSavedPresets();
+  if (presets.length === 0) return;
+
+  if (confirm("⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ danh sách cấu hình đã lưu không?")) {
+    setSavedPresets([]);
+    renderPresetsList();
+    alert("Đã xóa toàn bộ cấu hình đã lưu.");
+  }
 }
 
 /**
